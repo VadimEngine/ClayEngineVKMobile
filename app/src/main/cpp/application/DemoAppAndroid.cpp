@@ -7,18 +7,28 @@ DemoAppAndroid::DemoAppAndroid(android_app* app)
 DemoAppAndroid::~DemoAppAndroid() {}
 
 void DemoAppAndroid::loadResources() {
+    clay::Resources::Handle<VkSampler> samplerHandle_Default;
+
+    clay::Resources::Handle<clay::PipelineResource> pipelineHandle_TextureDepth;
+
+    clay::Resources::Handle<clay::Texture> textureHandle_VTexture;
+    clay::Resources::Handle<clay::Texture> textureHandle_Solid;
+
+    clay::Resources::Handle<clay::Material> materialHandle_Solid;
+    clay::Resources::Handle<clay::Material> materialHandle_VTexture;
+
+    clay::Resources::Handle<clay::Mesh> meshHandle_Sphere;
+
     // shaders
-    auto textureVertexFileData = loadFileToMemory(
-        (clay::Resources::getResourcePath() / "shaders/Texture.vert.spv").string()
+    clay::ShaderModule textureVertShader(
+        mpGraphicsContext_->getDevice(),
+        VK_SHADER_STAGE_VERTEX_BIT,
+        loadFileToMemory("shaders/Texture.vert.spv")
     );
-    VkShaderModule textureVertexShader = mpGraphicsContext_->createShader(
-        {VK_SHADER_STAGE_VERTEX_BIT, textureVertexFileData.data.get(), textureVertexFileData.size}
-    );
-    auto textureFragmentFileData = loadFileToMemory(
-        (clay::Resources::getResourcePath() / "shaders/Texture.frag.spv").string()
-    );
-    VkShaderModule textureFragmentShader = mpGraphicsContext_->createShader(
-        {VK_SHADER_STAGE_FRAGMENT_BIT, textureFragmentFileData.data.get(), textureFragmentFileData.size}
+    clay::ShaderModule textureFragShader(
+        mpGraphicsContext_->getDevice(),
+        VK_SHADER_STAGE_FRAGMENT_BIT,
+        loadFileToMemory("shaders/Texture.frag.spv")
     );
 
     // Font
@@ -27,15 +37,25 @@ void DemoAppAndroid::loadResources() {
         auto fontData = loadFileToMemory(
             (clay::Resources::getResourcePath() / "fonts/runescape_uf.ttf").string()
         );
-        auto vertexData = loadFileToMemory(
-            (clay::Resources::getResourcePath() / "shaders/Text.vert.spv").string()
+        clay::ShaderModule fontVertShader(
+            mpGraphicsContext_->getDevice(),
+            VK_SHADER_STAGE_VERTEX_BIT,
+            loadFileToMemory("shaders/Text.vert.spv")
         );
-        auto fragmentData = loadFileToMemory(
-            (clay::Resources::getResourcePath() / "shaders/Text.frag.spv").string()
+        clay::ShaderModule fontFragShader(
+            mpGraphicsContext_->getDevice(),
+            VK_SHADER_STAGE_FRAGMENT_BIT,
+            loadFileToMemory("shaders/Text.frag.spv")
         );
 
         mResources_.addResource<clay::Font>(
-            std::make_unique<clay::Font>(*mpGraphicsContext_, fontData, vertexData, fragmentData, *((clay::GraphicsContextAndroid*)mpGraphicsContext_.get())->mCameraUniform_),
+            clay::Font(
+                *mpGraphicsContext_,
+                fontData,
+                fontVertShader,
+                fontFragShader,
+                *((clay::GraphicsContextAndroid*)mpGraphicsContext_.get())->mCameraUniform_
+            ),
             "Runescape"
         );
     }
@@ -66,14 +86,11 @@ void DemoAppAndroid::loadResources() {
         if (vkCreateSampler(mpGraphicsContext_->getDevice(), &samplerInfo, nullptr, &sampler) != VK_SUCCESS) {
             throw std::runtime_error("failed to create texture sampler!");
         }
-        mResources_.addResource<VkSampler>(
-            std::make_unique<VkSampler>(sampler),
-            "Default"
-        );
+        samplerHandle_Default = mResources_.addResource<VkSampler>(std::move(sampler), "Default");
     }
     {
         // sphere mesh
-        mResources_.loadResource<clay::Mesh>(
+        meshHandle_Sphere = mResources_.loadResource<clay::Mesh>(
             {(clay::Resources::getResourcePath() / "models/Sphere.obj").string()},
             "Sphere"
         );
@@ -82,11 +99,11 @@ void DemoAppAndroid::loadResources() {
     {
         clay::utils::ImageData imageData = loadImageFileToMemory(clay::Resources::getResourcePath() / "textures/V.png");
 
-        auto* pVTexture = new clay::Texture(*mpGraphicsContext_);
-        pVTexture->initialize(imageData);
-        pVTexture->setSampler(*mResources_.getResource<VkSampler>("Default"));
+        clay::Texture vTexture(*mpGraphicsContext_);
+        vTexture.initialize(imageData);
+        vTexture.setSampler(mResources_[samplerHandle_Default]);
 
-        mResources_.addResource(std::unique_ptr<clay::Texture>(pVTexture), "VTexture");
+        textureHandle_VTexture = mResources_.addResource(std::move(vTexture), "VTexture");
     }
     {
         // solid image
@@ -101,11 +118,11 @@ void DemoAppAndroid::loadResources() {
         singleRGBA.pixels[2] = 255;
         singleRGBA.pixels[3] = 255;
 
-        auto* pSolidTexture = new clay::Texture(*mpGraphicsContext_);
-        pSolidTexture->initialize(singleRGBA);
-        pSolidTexture->setSampler(*mResources_.getResource<VkSampler>("Default"));
+        clay::Texture solidTexture(*mpGraphicsContext_);
+        solidTexture.initialize(singleRGBA);
+        solidTexture.setSampler(mResources_[samplerHandle_Default]);
 
-        mResources_.addResource(std::unique_ptr<clay::Texture>(pSolidTexture), "SolidTexture");
+        textureHandle_Solid = mResources_.addResource(std::move(solidTexture), "SolidTexture");
     }
 
     // pipeline
@@ -115,19 +132,8 @@ void DemoAppAndroid::loadResources() {
             .graphicsContext = *mpGraphicsContext_
         };
 
-        pipelineConfig.pipelineLayoutInfo.shaderStages = {
-            {
-                .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                .stage = VK_SHADER_STAGE_VERTEX_BIT,
-                .module = textureVertexShader,
-                .pName = "main"
-            },
-            {
-                .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-                .module = textureFragmentShader,
-                .pName = "main"
-            }
+        pipelineConfig.pipelineLayoutInfo.shaders = {
+            &textureVertShader, &textureFragShader
         };
 
         auto vertexAttrib = clay::Mesh::Vertex::getAttributeDescriptions();
@@ -179,8 +185,8 @@ void DemoAppAndroid::loadResources() {
             }
         };
 
-        mResources_.addResource<clay::PipelineResource>(
-            std::make_unique<clay::PipelineResource>(pipelineConfig),
+        pipelineHandle_TextureDepth = mResources_.addResource<clay::PipelineResource>(
+            clay::PipelineResource(pipelineConfig),
             "TextureDepth"
         );
 
@@ -190,7 +196,7 @@ void DemoAppAndroid::loadResources() {
         // Single White
         clay::Material::MaterialConfig matConfig {
             .graphicsContext = *mpGraphicsContext_,
-            .pipelineResource = *mResources_.getResource<clay::PipelineResource>("TextureDepth")
+            .pipelineResource = mResources_[pipelineHandle_TextureDepth]
         };
 
         matConfig.bufferBindings = {
@@ -203,16 +209,16 @@ void DemoAppAndroid::loadResources() {
         };
         matConfig.imageBindings = {
             {
-                .sampler = mResources_.getResource<clay::Texture>("SolidTexture")->getSampler(),
-                .imageView = mResources_.getResource<clay::Texture>("SolidTexture")->getImageView(),
+                .sampler = mResources_[textureHandle_Solid].getSampler(),
+                .imageView = mResources_[textureHandle_Solid].getImageView(),
                 .binding = 1,
                 .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
             }
         };
 
 
-        mResources_.addResource<clay::Material>(
-            std::make_unique<clay::Material>(matConfig),
+        materialHandle_Solid = mResources_.addResource<clay::Material>(
+            clay::Material(matConfig),
             "SolidTexture"
         );
     }
@@ -220,7 +226,7 @@ void DemoAppAndroid::loadResources() {
         // VTexture
         clay::Material::MaterialConfig matConfig {
             .graphicsContext = *mpGraphicsContext_,
-            .pipelineResource = *mResources_.getResource<clay::PipelineResource>("TextureDepth")
+            .pipelineResource = mResources_[pipelineHandle_TextureDepth]
         };
 
         matConfig.bufferBindings = {
@@ -233,42 +239,39 @@ void DemoAppAndroid::loadResources() {
         };
         matConfig.imageBindings = {
             {
-                .sampler = mResources_.getResource<clay::Texture>("VTexture")->getSampler(),
-                .imageView = mResources_.getResource<clay::Texture>("VTexture")->getImageView(),
+                .sampler = mResources_[textureHandle_VTexture].getSampler(),
+                .imageView = mResources_[textureHandle_VTexture].getImageView(),
                 .binding = 1,
                 .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
             }
         };
 
-        mResources_.addResource<clay::Material>(
-            std::make_unique<clay::Material>(matConfig),
+        materialHandle_VTexture = mResources_.addResource<clay::Material>(
+            clay::Material(matConfig),
             "VTexture"
         );
     }
     // Models
     {
         // Solid Sphere
-        std::unique_ptr<clay::Model> pSolidSphereModel = std::make_unique<clay::Model>(*mpGraphicsContext_);
-        pSolidSphereModel->addElement({
-                                          mResources_.getResource<clay::Mesh>("Sphere"),
-                                          mResources_.getResource<clay::Material>("SolidTexture"),
-                                          glm::mat4(1),
-                                      });
+        clay::Model model(*mpGraphicsContext_);
+        model.addElement({
+            &mResources_[meshHandle_Sphere],
+            &mResources_[materialHandle_Solid],
+            glm::mat4(1),
+        });
 
-        mResources_.addResource<clay::Model>(std::move(pSolidSphereModel), "SolidSphere");
+        mResources_.addResource<clay::Model>(std::move(model), "SolidSphere");
     }
     {
         // V Texture Sphere
-        std::unique_ptr<clay::Model> pSolidSphereModel = std::make_unique<clay::Model>(*mpGraphicsContext_);
-        pSolidSphereModel->addElement({
-                                          mResources_.getResource<clay::Mesh>("Sphere"),
-                                          mResources_.getResource<clay::Material>("VTexture"),
-                                          glm::mat4(1),
-                                      });
+        clay::Model model(*mpGraphicsContext_);
+        model.addElement({
+            &mResources_[meshHandle_Sphere],
+            &mResources_[materialHandle_VTexture],
+            glm::mat4(1),
+        });
 
-        mResources_.addResource<clay::Model>(std::move(pSolidSphereModel), "VTexture");
+        mResources_.addResource<clay::Model>(std::move(model), "VTexture");
     }
-
-    vkDestroyShaderModule(mpGraphicsContext_->getDevice(), textureVertexShader, nullptr);
-    vkDestroyShaderModule(mpGraphicsContext_->getDevice(), textureFragmentShader, nullptr);
 }

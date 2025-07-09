@@ -1,43 +1,61 @@
 // clay
 #include <clay/application/android/AppAndroid.h>
 #include <clay/gui/android/ImGuiComponentAndroid.h>
-#include <clay/entity/render/ModelRenderable.h>
-#include <clay/entity/render/TextRenderable.h>
 // application
 #include "application/scenes/menu_scene/MenuScene.h"
 // class
 #include "application/scenes/sandbox_scene/SandboxScene.h"
 
 SandboxScene::SandboxScene(clay::BaseApp& app)
-    : clay::BaseScene(app) {
+    : clay::BaseScene(app),
+      mEntityManager_(app.getGraphicsContext(), app.getResources()) {
     mCamera_.setPosition({0,0,5});
     const auto [frameWidth, frameHeight] = app.getGraphicsContext().getFrameDimensions();
     mCamera_.setAspectRatio(static_cast<float>(frameWidth) / static_cast<float>(frameHeight));
 
-    auto* entity1 = new clay::Entity();
-    auto* modelRenderable = new clay::ModelRenderable(mApp_.getResources().getResource<clay::Model>("SolidSphere"));
-    entity1->addRenderable(modelRenderable);
-    entity1->setPosition({0,0,0});
-    mEntities_.emplace_back(entity1);
-
-    auto* entity2 = new clay::Entity();
-    auto* modelRenderable2= new clay::ModelRenderable(mApp_.getResources().getResource<clay::Model>("VTexture"));
-    entity2->addRenderable(modelRenderable2);
-    entity2->setPosition({1,0,0});
-    mEntities_.emplace_back(entity2);
-
-    auto* entity3 = new clay::Entity();
-    auto* textRenderable = new clay::TextRenderable(mApp_.getGraphicsContext(), "HELLO WORLD", mApp_.getResources().getResource<clay::Font>("Runescape"));
-    textRenderable->setScale({.01f,.01f,.01f});
-    textRenderable->setColor({1,1,0,1});
-    entity3->addRenderable(textRenderable);
-    mEntities_.emplace_back(entity3);
+    {
+        mSolidSphereEntity_ = mEntityManager_.createEntity();
+        clay::ecs::ModelRenderable modelRenderablePlain{};
+        modelRenderablePlain.modelHandle = mApp_.getResources().getHandle<clay::Model>("SolidSphere");
+        mEntityManager_.addModelRenderable(mSolidSphereEntity_, modelRenderablePlain);
+        clay::ecs::Transform transform{};
+        transform.mPosition_ = {0, 0, 0};
+        mEntityManager_.addTransform(mSolidSphereEntity_, transform);
+        mEntityManager_.addMetaData(mSolidSphereEntity_, {});
+    }
+    {
+        mTextureSphereEntity_ = mEntityManager_.createEntity();
+        clay::ecs::ModelRenderable modelRenderablePlain{};
+        modelRenderablePlain.modelHandle = mApp_.getResources().getHandle<clay::Model>("VTexture");
+        mEntityManager_.addModelRenderable(mTextureSphereEntity_, modelRenderablePlain);
+        clay::ecs::Transform transform{};
+        transform.mPosition_ = {1, 0, 0};
+        mEntityManager_.addTransform(mTextureSphereEntity_, transform);
+        mEntityManager_.addMetaData(mTextureSphereEntity_, {});
+    }
+    {
+        mTextEntity_ = mEntityManager_.createEntity();
+        clay::ecs::TextRenderable text;
+        text.initialize(
+            mApp_.getGraphicsContext(),
+            "HELLO WORLD",
+            &mApp_.getResources()[mApp_.getResources().getHandle<clay::Font>("Runescape")]
+        );
+        text.mScale_ = {.01f,.01f,.01f};
+        text.mColor_ = {1,1,0,1};
+        mEntityManager_.addTextRenderable(mTextEntity_, text);
+        clay::ecs::Transform transform{};
+        transform.mPosition_ = {0, 1, 0};
+        mEntityManager_.addTransform(mTextEntity_, transform);
+    }
 }
 
 SandboxScene::~SandboxScene() {}
 
 void SandboxScene::update(const float dt) {
-    mEntities_[1]->getOrientation() *= glm::angleAxis(glm::radians(120.0f / float(ImGui::GetIO().Framerate)), glm::vec3(0.0f, 1.0f, 0.0f));
+    mEntityManager_.mTransforms[mSolidSphereEntity_].mOrientation_ *= glm::angleAxis(glm::radians(120.0f / float(ImGui::GetIO().Framerate)), glm::vec3(0.0f, 1.0f, 0.0f));
+    mEntityManager_.mTransforms[mTextureSphereEntity_].mOrientation_ *= glm::angleAxis(glm::radians(120.0f / float(ImGui::GetIO().Framerate)), glm::vec3(0.0f, 1.0f, 0.0f));
+    mEntityManager_.mTransforms[mTextEntity_].mOrientation_ *= glm::angleAxis(glm::radians(120.0f / float(ImGui::GetIO().Framerate)), glm::vec3(0.0f, 1.0f, 0.0f));
 }
 
 void SandboxScene::render(VkCommandBuffer cmdBuffer) {
@@ -52,9 +70,7 @@ void SandboxScene::render(VkCommandBuffer cmdBuffer) {
         sizeof(CameraConstant)
     );
 
-    for (auto& eachEntity : mEntities_) {
-        eachEntity->render(cmdBuffer);
-    }
+    mEntityManager_.render(cmdBuffer);
 }
 
 void SandboxScene::renderGUI(VkCommandBuffer cmdBuffer) {
@@ -65,7 +81,6 @@ void SandboxScene::renderGUI(VkCommandBuffer cmdBuffer) {
     ImGui::Text("Sandbox Scene");
 
     if (ImGui::Button("Back")) {
-        // TODO set back to menu scene
         ((clay::AppAndroid&)mApp_).setScene(new MenuScene(mApp_));
     }
     ImGui::End();
