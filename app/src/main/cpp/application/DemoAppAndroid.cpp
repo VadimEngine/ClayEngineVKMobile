@@ -7,7 +7,7 @@ DemoAppAndroid::DemoAppAndroid(android_app* app)
 DemoAppAndroid::~DemoAppAndroid() {}
 
 void DemoAppAndroid::loadResources() {
-    clay::Resources::Handle<VkSampler> samplerHandle_Default;
+    clay::Resources::Handle<vk::Sampler> samplerHandle_Default;
 
     clay::Resources::Handle<clay::PipelineResource> pipelineHandle_TextureDepth;
 
@@ -22,12 +22,12 @@ void DemoAppAndroid::loadResources() {
     // shaders
     clay::ShaderModule textureVertShader(
         mpGraphicsContext_->getDevice(),
-        VK_SHADER_STAGE_VERTEX_BIT,
+        vk::ShaderStageFlagBits::eVertex,
         loadFileToMemory("shaders/Texture.vert.spv")
     );
     clay::ShaderModule textureFragShader(
         mpGraphicsContext_->getDevice(),
-        VK_SHADER_STAGE_FRAGMENT_BIT,
+        vk::ShaderStageFlagBits::eFragment,
         loadFileToMemory("shaders/Texture.frag.spv")
     );
 
@@ -39,12 +39,12 @@ void DemoAppAndroid::loadResources() {
         );
         clay::ShaderModule fontVertShader(
             mpGraphicsContext_->getDevice(),
-            VK_SHADER_STAGE_VERTEX_BIT,
+            vk::ShaderStageFlagBits::eVertex,
             loadFileToMemory("shaders/Text.vert.spv")
         );
         clay::ShaderModule fontFragShader(
             mpGraphicsContext_->getDevice(),
-            VK_SHADER_STAGE_FRAGMENT_BIT,
+            vk::ShaderStageFlagBits::eFragment,
             loadFileToMemory("shaders/Text.frag.spv")
         );
 
@@ -62,31 +62,32 @@ void DemoAppAndroid::loadResources() {
 
     // Sampler
     {
-        // default sampler
-        VkSampler sampler;
+        // Default sampler
+        vk::Sampler sampler;
 
-        VkSamplerCreateInfo samplerInfo{};
-        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-        samplerInfo.magFilter = VK_FILTER_NEAREST;
-        samplerInfo.minFilter = VK_FILTER_NEAREST;
-        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+        vk::SamplerCreateInfo samplerInfo{};
+        samplerInfo.magFilter = vk::Filter::eNearest;
+        samplerInfo.minFilter = vk::Filter::eNearest;
+        samplerInfo.addressModeU = vk::SamplerAddressMode::eClampToBorder;
+        samplerInfo.addressModeV = vk::SamplerAddressMode::eClampToBorder;
+        samplerInfo.addressModeW = vk::SamplerAddressMode::eClampToBorder;
         samplerInfo.anisotropyEnable = VK_FALSE;
-        samplerInfo.maxAnisotropy = 1;
-        samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+        samplerInfo.maxAnisotropy = 1.0f;
+        samplerInfo.borderColor = vk::BorderColor::eFloatTransparentBlack;
         samplerInfo.unnormalizedCoordinates = VK_FALSE;
         samplerInfo.compareEnable = VK_FALSE;
-        samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        samplerInfo.compareOp = vk::CompareOp::eAlways;
+        samplerInfo.mipmapMode = vk::SamplerMipmapMode::eNearest;
         samplerInfo.minLod = 0.0f;
         samplerInfo.maxLod = 0.0f;
         samplerInfo.mipLodBias = 0.0f;
 
-        if (vkCreateSampler(mpGraphicsContext_->getDevice(), &samplerInfo, nullptr, &sampler) != VK_SUCCESS) {
+        vk::Result result = mpGraphicsContext_->getDevice().createSampler(&samplerInfo, nullptr, &sampler);
+        if (result != vk::Result::eSuccess) {
             throw std::runtime_error("failed to create texture sampler!");
         }
-        samplerHandle_Default = mResources_.addResource<VkSampler>(std::move(sampler), "Default");
+
+        samplerHandle_Default = mResources_.addResource<vk::Sampler>(std::move(sampler), "Default");
     }
     {
         // sphere mesh
@@ -162,7 +163,7 @@ void DemoAppAndroid::loadResources() {
 
         pipelineConfig.pipelineLayoutInfo.pushConstants = {
             {
-                .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                .stageFlags = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment,
                 .offset = 0,
                 .size = sizeof(glm::mat4) + sizeof(glm::vec4)
             }
@@ -171,16 +172,16 @@ void DemoAppAndroid::loadResources() {
         pipelineConfig.bindingLayoutInfo.bindings = {
             {
                 .binding = 0,
-                .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                .descriptorType =  vk::DescriptorType::eUniformBuffer,
                 .descriptorCount = 1,
-                .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+                .stageFlags = vk::ShaderStageFlagBits::eVertex,
                 .pImmutableSamplers = nullptr
             },
             {
                 .binding = 1,
-                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .descriptorType = vk::DescriptorType::eCombinedImageSampler,
                 .descriptorCount = 1,
-                .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                .stageFlags = vk::ShaderStageFlagBits::eFragment,
                 .pImmutableSamplers = nullptr
             }
         };
@@ -204,7 +205,7 @@ void DemoAppAndroid::loadResources() {
                 .buffer = ((clay::GraphicsContextAndroid*)mpGraphicsContext_.get())->mCameraUniform_->mBuffer_,
                 .size = sizeof(clay::BaseScene::CameraConstant),
                 .binding = 0,
-                .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+                .descriptorType = vk::DescriptorType::eUniformBuffer
             }
         };
         matConfig.imageBindings = {
@@ -212,7 +213,7 @@ void DemoAppAndroid::loadResources() {
                 .sampler = mResources_[textureHandle_Solid].getSampler(),
                 .imageView = mResources_[textureHandle_Solid].getImageView(),
                 .binding = 1,
-                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+                .descriptorType = vk::DescriptorType::eCombinedImageSampler
             }
         };
 
@@ -234,7 +235,7 @@ void DemoAppAndroid::loadResources() {
                 .buffer = ((clay::GraphicsContextAndroid*)mpGraphicsContext_.get())->mCameraUniform_->mBuffer_,
                 .size = sizeof(clay::BaseScene::CameraConstant),
                 .binding = 0,
-                .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+                .descriptorType = vk::DescriptorType::eUniformBuffer
             }
         };
         matConfig.imageBindings = {
@@ -242,7 +243,7 @@ void DemoAppAndroid::loadResources() {
                 .sampler = mResources_[textureHandle_VTexture].getSampler(),
                 .imageView = mResources_[textureHandle_VTexture].getImageView(),
                 .binding = 1,
-                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+                .descriptorType = vk::DescriptorType::eCombinedImageSampler
             }
         };
 

@@ -16,6 +16,9 @@ Simple scene that render loaded models and materials. Can also go back to the Me
 
 ## Build
 
+Apply fix for physx
+`patch -p0 -i patches/physx_fixes.patch`
+
 Update Submodules
 - `git submodule update --init --recursive`
 
@@ -29,3 +32,11 @@ build CLI:
 The build `app-debug.apk` will be `.\app\build\intermediates\apk\debug\app-debug.apk` can be deployed to an Oculus device
 
 Alternatively, this can be built and deployed with Android studio.
+
+Note: For debug mode, ./app/src/main/jniLibs must be added with vulkan validation shared objects
+- `libVkLayer_core_validation.so`
+- `libVkLayer_khronos_validation.so`
+- `libVkLayer_object_tracker.so`
+- `libVkLayer_parameter_validation.so`
+- `libVkLayer_threading.so`
+- `libVkLayer_unique_objects.so`

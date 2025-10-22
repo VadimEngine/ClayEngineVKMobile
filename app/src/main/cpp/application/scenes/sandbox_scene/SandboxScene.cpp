@@ -21,7 +21,6 @@ SandboxScene::SandboxScene(clay::BaseApp& app)
         clay::ecs::Transform transform{};
         transform.mPosition_ = {0, 0, 0};
         mEntityManager_.addTransform(mSolidSphereEntity_, transform);
-        mEntityManager_.addMetaData(mSolidSphereEntity_, {});
     }
     {
         mTextureSphereEntity_ = mEntityManager_.createEntity();
@@ -31,7 +30,6 @@ SandboxScene::SandboxScene(clay::BaseApp& app)
         clay::ecs::Transform transform{};
         transform.mPosition_ = {1, 0, 0};
         mEntityManager_.addTransform(mTextureSphereEntity_, transform);
-        mEntityManager_.addMetaData(mTextureSphereEntity_, {});
     }
     {
         mTextEntity_ = mEntityManager_.createEntity();
@@ -58,7 +56,7 @@ void SandboxScene::update(const float dt) {
     mEntityManager_.mTransforms[mTextEntity_].mOrientation_ *= glm::angleAxis(glm::radians(120.0f / float(ImGui::GetIO().Framerate)), glm::vec3(0.0f, 1.0f, 0.0f));
 }
 
-void SandboxScene::render(VkCommandBuffer cmdBuffer) {
+void SandboxScene::render(vk::CommandBuffer cmdBuffer) {
     renderGUI(cmdBuffer);
     // update camera
     clay::BaseScene::CameraConstant ubo{};
@@ -73,7 +71,7 @@ void SandboxScene::render(VkCommandBuffer cmdBuffer) {
     mEntityManager_.render(cmdBuffer);
 }
 
-void SandboxScene::renderGUI(VkCommandBuffer cmdBuffer) {
+void SandboxScene::renderGUI(vk::CommandBuffer cmdBuffer) {
     clay::ImGuiComponentAndroid::beginRender();
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImVec2(250, 480), ImGuiCond_FirstUseEver);

@@ -13,11 +13,11 @@ MenuScene::~MenuScene() {}
 
 void MenuScene::update(const float dt) {}
 
-void MenuScene::render(VkCommandBuffer cmdBuffer) {
+void MenuScene::render(vk::CommandBuffer cmdBuffer) {
     renderGUI(cmdBuffer);
 }
 
-void MenuScene::renderGUI(VkCommandBuffer cmdBuffer) {
+void MenuScene::renderGUI(vk::CommandBuffer cmdBuffer) {
     clay::ImGuiComponentAndroid::beginRender();
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImVec2(250, 480), ImGuiCond_FirstUseEver);
