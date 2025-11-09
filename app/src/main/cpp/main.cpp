@@ -80,17 +80,13 @@ void android_main(android_app* app) {
                 );
                 if (!foundation) {
                     LOG_E("PhysX Foundation creation failed");
-                    //printf("PhysX Foundation creation failed!\n");
-                    //return -1;
                 }
 
                 PxPhysics* physics = PxCreatePhysics(PX_PHYSICS_VERSION, *foundation
                                                      , PxTolerancesScale());
                 if (!physics) {
                     LOG_E("PhysX Physics creation failed");
-                    //printf("PhysX Physics creation failed!\n");
                     foundation->release();
-                    //return -1;
                 }
 
                 // Create a simple scene
@@ -102,13 +98,11 @@ void android_main(android_app* app) {
                 PxScene* scene = physics->createScene(sceneDesc);
                 if (!scene) {
                     LOG_E("PhysX Scene creation failed");
-                    //printf("PhysX Scene creation failed!\n");
                     physics->release();
                     foundation->release();
                     //return -1;
                 }
                 LOG_I("PhysX initialized successfully");
-                //printf("PhysX initialized successfully!\n");
 
                 // Cleanup
                 scene->release();
