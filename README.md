@@ -17,6 +17,7 @@ Simple scene that render loaded models and materials. Can also go back to the Me
 ## Build
 
 Apply fix for physx
+`cd thirdparty/ClayEngineVK`
 `patch -p0 -i patches/physx_fixes.patch`
 
 Update Submodules
